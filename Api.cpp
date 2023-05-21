@@ -1,14 +1,6 @@
 #include "Api.h"
-#include <WiFi.h>
 #include <HTTPClient.h>
 
-const char *ssid = getenv("WIFI_SSID");
-const char *password = getenv("WIFI_PASSWORD");
-
-Api::Api(void)
-{
-    setup_wifi();
-}
 
 String Api::http_request(const char *host, const char *path, const char *method)
 {
@@ -33,20 +25,6 @@ String Api::http_request(const char *host, const char *path, const char *method)
     return "";
 }
 
-void Api::setup_wifi(void)
-{
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-    }
-
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.print("IP address: ");
-    Serial.print(WiFi.localIP());
-}
 
 bool Api::wifi_is_connected(void)
 {

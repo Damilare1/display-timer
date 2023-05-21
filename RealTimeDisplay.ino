@@ -7,11 +7,13 @@
 #include <Arduino_JSON.h>
 #include "WifiCredentials.h"
 #include "LGFX.h"
+#include "Api.h"
 
 const char *ssid = SSID;
 const char *password = PASSWORD;
 
 LGFX tft;
+Api api;
 
 /*Change to your screen resolution*/
 static const uint32_t screenWidth = 240;
@@ -129,7 +131,7 @@ void get_current_time_epoch(time_t *epoch) {
 }
 
 JSONVar get_current_time_data() {
-  String response = http_request("https://worldtimeapi.org/api/timezone/Europe/London", "/", "GET");
+  String response = api.http_request("https://worldtimeapi.org/api/timezone/Europe/London", "/", "GET");
   return JSON.parse(response);
 }
 
@@ -176,28 +178,4 @@ void setup_wifi(void) {
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
   Serial.print(WiFi.localIP());
-}
-
-bool wifi_is_connected(void) {
-  return WiFi.status() == WL_CONNECTED;
-}
-
-String http_request(const char *host, const char *path, const char *method) {
-  HTTPClient client;
-  if (wifi_is_connected()) {
-    Serial.println(method);
-    Serial.print(" ");
-    Serial.print(path);
-    Serial.println(" HTTP/1.1");
-    Serial.print("Host: ");
-    Serial.println(host);
-    client.begin(host);
-    Serial.println(client.GET());
-    // Read the response.
-    if (client.GET() > 0) {
-      return client.getString();
-    }
-  }
-
-  return "";
 }

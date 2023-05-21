@@ -5,14 +5,10 @@
 class Api {
 
 public:
-  Api(void);
+  String http_request(const char *host, const char *path, const char *method);
 
-
-String http_request(const char *host, const char *path, const char *method);
-
-void setup_wifi(void);
-
-bool wifi_is_connected(void);
+private:
+  bool wifi_is_connected(void);
 
 };
 
