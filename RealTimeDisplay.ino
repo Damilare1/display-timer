@@ -1,24 +1,22 @@
-/////////////////////////////////////////////////////////////////
-/*
-  ESP32 | LVGL8 | Ep 0. GFX Setup (ft. LovyanGFX)
-  Video Tutorial: https://youtu.be/IPCvQ4o_WP8
-  Created by Eric N. (ThatProject) 
-*/
-/////////////////////////////////////////////////////////////////
-//To download the LovyanGFX library before use//
 #include "time.h"
 #include <lvgl.h>
+#define LGFX_USE_V1
+#include <LovyanGFX.hpp>
+#include <HTTPClient.h>
+#include <WiFi.h>
+#include <Arduino_JSON.h>
+#include "WifiCredentials.h"
 #include "LGFX.h"
-#include "WorldTimeApi.h"
+
+const char *ssid = SSID;
+const char *password = PASSWORD;
 
 LGFX tft;
-WorldTimeApi api;
 
 /*Change to your screen resolution*/
 static const uint32_t screenWidth = 240;
 static const uint32_t screenHeight = 320;
-long temp = 28066275 * 60;
-time_t now = api.get_epoch();
+time_t now;
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf[screenWidth * 10];
 
@@ -60,7 +58,8 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 
 void setup() {
   Serial.begin(115200);
-  
+  setup_wifi();
+  now = get_epoch();
   tft.begin();
   tft.setRotation(2);
   tft.setBrightness(255);
@@ -97,19 +96,6 @@ void loop() {
   delay(5);
 }
 
-static void btn_event_cb(lv_event_t *e) {
-  lv_event_code_t code = lv_event_get_code(e);
-  lv_obj_t *btn = lv_event_get_target(e);
-  if (code == LV_EVENT_CLICKED) {
-    static uint8_t cnt = 0;
-    cnt++;
-
-    /*Get the first child of the button which is the label and change its text*/
-    lv_obj_t *label = lv_obj_get_child(btn, 0);
-    lv_label_set_text_fmt(label, "Button: %d", cnt);
-  }
-}
-
 void display_timer() {
   // Create a label for the time.
   lv_obj_t *label = lv_label_create(lv_scr_act());
@@ -130,16 +116,88 @@ void update_timer(lv_timer_t *t) {
   // Set the time label text.
   lv_label_set_text(label, time_string);
 }
-/**
- * Create a button with a label and react on click event.
- */
-void lv_example_get_started_1(void) {
-  lv_obj_t *btn = lv_btn_create(lv_scr_act()); /*Add a button the current screen*/
-  lv_obj_set_size(btn, 120, 50);               /*Set its size*/
-  lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_ALL, NULL); /*Assign a callback to the button*/
 
-  lv_obj_t *label = lv_label_create(btn); /*Add a label to the button*/
-  lv_label_set_text(label, "Button");     /*Set the labels text*/
-  lv_obj_center(label);
+void get_current_time_epoch(time_t *epoch) {
+  JSONVar data = get_current_time_data();
+  if (JSON.typeof(data) == "undefined") {
+    Serial.println("Parsing input failed!");
+    return;
+  }
+  String str = data["datetime"];
+  bool dst = (bool)data["dst"];
+  *epoch = convertTimeStringToEpoch(str.c_str(), dst);
+}
+
+JSONVar get_current_time_data() {
+  String response = http_request("https://worldtimeapi.org/api/timezone/Europe/London", "/", "GET");
+  return JSON.parse(response);
+}
+
+time_t convertTimeStringToEpoch(const char *timeString, bool isDst) {
+  uint16_t YEAR;
+  uint8_t MONTH, DAY, HOUR, MINUTE, SECONDS, TZ_H, TZ_M;
+  uint32_t MS;
+  char tz_sign;
+  uint8_t num_fields = sscanf(timeString, "%04hu-%02hhu-%02hhuT%02hhu:%02hhu:%02hhu.%06u%c%02hhu:%02hhu", &YEAR, &MONTH, &DAY, &HOUR, &MINUTE, &SECONDS, &MS, &tz_sign, &TZ_H, &TZ_M);
+
+  struct tm t = { 0 };
+  t.tm_hour = HOUR;
+  t.tm_min = MINUTE;
+  t.tm_sec = SECONDS;
+  t.tm_mon = MONTH - 1;
+  t.tm_mday = DAY;
+  t.tm_year = YEAR - 1900;
+  t.tm_isdst = isDst ? 1 : 0;
+  char time_string[16];
+
+
+  // time_t tz_offset = TZ_H * 3600 + TZ_M * 60;
+  // if (tz_sign == '+') {
+  //   tz_offset = -tz_offset;
+  // }
+  // time_t time = mktime(&t) + tz_offset;
+  return mktime(&t);
+}
+
+time_t get_epoch() {
+  time_t epoch = 0;
+  get_current_time_epoch(&epoch);
+  return epoch;
+}
+
+void setup_wifi(void) {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.print(WiFi.localIP());
+}
+
+bool wifi_is_connected(void) {
+  return WiFi.status() == WL_CONNECTED;
+}
+
+String http_request(const char *host, const char *path, const char *method) {
+  HTTPClient client;
+  if (wifi_is_connected()) {
+    Serial.println(method);
+    Serial.print(" ");
+    Serial.print(path);
+    Serial.println(" HTTP/1.1");
+    Serial.print("Host: ");
+    Serial.println(host);
+    client.begin(host);
+    Serial.println(client.GET());
+    // Read the response.
+    if (client.GET() > 0) {
+      return client.getString();
+    }
+  }
+
+  return "";
 }
