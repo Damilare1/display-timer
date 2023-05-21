@@ -15,7 +15,6 @@ String Api::http_request(const char *host, const char *path, const char *method)
         Serial.println(host);
         Serial.println();
         client.begin(host);
-        Serial.println(client.GET());
         // Read the response.
         if(client.GET() > 0) {
           return client.getString();

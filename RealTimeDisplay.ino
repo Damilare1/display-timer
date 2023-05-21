@@ -2,22 +2,20 @@
 #include <lvgl.h>
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
-#include <HTTPClient.h>
 #include <WiFi.h>
-#include <Arduino_JSON.h>
 #include "WifiCredentials.h"
 #include "LGFX.h"
-#include "Api.h"
+#include "WorldTimeApi.h"
 
 const char *ssid = SSID;
 const char *password = PASSWORD;
 
 LGFX tft;
-Api api;
+WorldTimeApi wApi;
 
 /*Change to your screen resolution*/
-static const uint32_t screenWidth = 240;
-static const uint32_t screenHeight = 320;
+static const uint16_t screenWidth = 240;
+static const uint16_t screenHeight = 320;
 time_t now;
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf[screenWidth * 10];
@@ -61,7 +59,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 void setup() {
   Serial.begin(115200);
   setup_wifi();
-  now = get_epoch();
+  now = wApi.get_epoch();
   tft.begin();
   tft.setRotation(2);
   tft.setBrightness(255);
@@ -119,54 +117,6 @@ void update_timer(lv_timer_t *t) {
   lv_label_set_text(label, time_string);
 }
 
-void get_current_time_epoch(time_t *epoch) {
-  JSONVar data = get_current_time_data();
-  if (JSON.typeof(data) == "undefined") {
-    Serial.println("Parsing input failed!");
-    return;
-  }
-  String str = data["datetime"];
-  bool dst = (bool)data["dst"];
-  *epoch = convertTimeStringToEpoch(str.c_str(), dst);
-}
-
-JSONVar get_current_time_data() {
-  String response = api.http_request("https://worldtimeapi.org/api/timezone/Europe/London", "/", "GET");
-  return JSON.parse(response);
-}
-
-time_t convertTimeStringToEpoch(const char *timeString, bool isDst) {
-  uint16_t YEAR;
-  uint8_t MONTH, DAY, HOUR, MINUTE, SECONDS, TZ_H, TZ_M;
-  uint32_t MS;
-  char tz_sign;
-  uint8_t num_fields = sscanf(timeString, "%04hu-%02hhu-%02hhuT%02hhu:%02hhu:%02hhu.%06u%c%02hhu:%02hhu", &YEAR, &MONTH, &DAY, &HOUR, &MINUTE, &SECONDS, &MS, &tz_sign, &TZ_H, &TZ_M);
-
-  struct tm t = { 0 };
-  t.tm_hour = HOUR;
-  t.tm_min = MINUTE;
-  t.tm_sec = SECONDS;
-  t.tm_mon = MONTH - 1;
-  t.tm_mday = DAY;
-  t.tm_year = YEAR - 1900;
-  t.tm_isdst = isDst ? 1 : 0;
-  char time_string[16];
-
-
-  // time_t tz_offset = TZ_H * 3600 + TZ_M * 60;
-  // if (tz_sign == '+') {
-  //   tz_offset = -tz_offset;
-  // }
-  // time_t time = mktime(&t) + tz_offset;
-  return mktime(&t);
-}
-
-time_t get_epoch() {
-  time_t epoch = 0;
-  get_current_time_epoch(&epoch);
-  return epoch;
-}
-
 void setup_wifi(void) {
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -177,5 +127,5 @@ void setup_wifi(void) {
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
-  Serial.print(WiFi.localIP());
+  Serial.println(WiFi.localIP());
 }
