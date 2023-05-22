@@ -136,7 +136,7 @@ void display_timer() {
   set_date_text_styles(date_text);
   lv_label_set_text(day_text, "Wednesday");
   lv_label_set_text(time_text, "00:00:00");
-  lv_label_set_text(date_text, "10 February, 1993");
+  lv_label_set_text(date_text, "4 May, 2002");
 
   // Set the update timer.
   lv_timer_create(update_timer, 1000, time_text);
